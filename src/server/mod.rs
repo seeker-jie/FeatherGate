@@ -18,48 +18,14 @@ pub async fn start_server(config: Arc<Config>, addr: SocketAddr) -> Result<()> {
     info!("FeatherGate 服务器运行在 http://{}", addr);
 
     // 设置优雅关闭信号处理
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(());
-    
-    // 监听 Ctrl+C 信号
-    #[cfg(unix)]
-    {
-        let sigterm = async {
-            signal::unix::signal(signal::unix::SignalKind::terminate())
-                .expect("设置 SIGTERM 信号处理失败")
-                .recv()
-                .await;
-        };
-        
-        let sigint = async {
-            signal::ctrl_c().await.expect("设置 Ctrl+C 信号处理失败");
-        };
-        
-        tokio::select! {
-            _ = sigterm => {
-                warn!("收到 SIGTERM 信号，开始优雅关闭...");
-            }
-            _ = sigint => {
-                warn!("收到 Ctrl+C 信号，开始优雅关闭...");
-            }
-        }
-        
-        // 发送关闭信号
-        let _ = shutdown_tx.send(());
-    }
-    
-    #[cfg(not(unix))]
-    {
-        signal::ctrl_c().await.expect("设置 Ctrl+C 信号处理失败");
-        warn!("收到 Ctrl+C 信号，开始优雅关闭...");
-        let _ = shutdown_tx.send(());
-    }
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
 
-    // 启动服务器循环，等待关闭信号
+    // 启动服务器循环
     let server_handle = tokio::spawn({
         let mut shutdown_rx = shutdown_rx.clone();
         let listener = listener;
         let config = config.clone();
-        
+
         async move {
             loop {
                 tokio::select! {
@@ -69,13 +35,13 @@ pub async fn start_server(config: Arc<Config>, addr: SocketAddr) -> Result<()> {
                             Ok((stream, _)) => {
                                 let io = TokioIo::new(stream);
                                 let config = Arc::clone(&config);
-                                
+
                                 tokio::spawn(async move {
                                     let service = service_fn(move |req| {
                                         let config = Arc::clone(&config);
                                         handlers::handle_request(req, config)
                                     });
-                                    
+
                                     if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
                                         error!("服务连接错误: {}", e);
                                     }
@@ -97,18 +63,37 @@ pub async fn start_server(config: Arc<Config>, addr: SocketAddr) -> Result<()> {
         }
     });
 
-    // 等待关闭信号
-    if let Err(e) = shutdown_rx.changed().await {
-        error!("等待关闭信号时出错: {}", e);
-        return Ok(());
+    // 在主线程中等待关闭信号
+    #[cfg(unix)]
+    {
+        let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("设置 SIGTERM 信号处理失败");
+
+        tokio::select! {
+            _ = sigterm.recv() => {
+                warn!("收到 SIGTERM 信号，开始优雅关闭...");
+            }
+            _ = signal::ctrl_c() => {
+                warn!("收到 Ctrl+C 信号，开始优雅关闭...");
+            }
+        }
     }
-    
+
+    #[cfg(not(unix))]
+    {
+        signal::ctrl_c().await.expect("设置 Ctrl+C 信号处理失败");
+        warn!("收到 Ctrl+C 信号，开始优雅关闭...");
+    }
+
+    // 发送关闭信号给服务器循环
+    let _ = shutdown_tx.send(());
+
     // 等待服务器处理完现有连接
     info!("等待现有连接处理完成...");
     if let Err(e) = server_handle.await {
         error!("等待服务器关闭时出错: {}", e);
     }
-    
+
     info!("服务器已优雅关闭");
     Ok(())
 }
