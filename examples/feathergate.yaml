@@ -1,0 +1,52 @@
+# FeatherGate 完整配置示例
+# 包含所有支持的提供商和高级配置选项
+
+model_list:
+  # OpenAI GPT 模型
+  - model_name: gpt-4
+    litellm_params:
+      model: openai/gpt-4
+      api_key: ${OPENAI_API_KEY}
+      api_base: https://api.openai.com/v1
+
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: ${OPENAI_API_KEY}
+      # api_base: https://api.openai.com/v1  # 可选，默认值
+
+  # Anthropic Claude 模型
+  - model_name: claude-opus
+    litellm_params:
+      model: anthropic/claude-opus-4-5
+      api_key: ${ANTHROPIC_API_KEY}
+      api_base: https://api.anthropic.com
+
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: ${ANTHROPIC_API_KEY}
+      # api_base: https://api.anthropic.com  # 可选，默认值
+
+  # Google Gemini 模型
+  - model_name: gemini-pro
+    litellm_params:
+      model: gemini/gemini-pro
+      api_key: ${GEMINI_API_KEY}
+      api_base: https://generativelanguage.googleapis.com
+
+  - model_name: gemini-3-flash
+    litellm_params:
+      model: gemini/gemini-3-flash
+      api_key: ${GEMINI_API_KEY}
+      # api_base: https://generativelanguage.googleapis.com  # 可选，默认值
+
+# 服务器配置（可选）
+server:
+  bind: "0.0.0.0:8080"  # 监听地址和端口
+  timeout: 30  # 请求超时时间（秒）
+
+# 日志配置（可选）
+logging:
+  level: "info"  # 日志级别: trace, debug, info, warn, error
+  format: "json"  # 日志格式: json, pretty

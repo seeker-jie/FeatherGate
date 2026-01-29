@@ -1,0 +1,41 @@
+# FeatherGate 生产环境配置示例
+# 包含生产环境的安全配置建议
+
+model_list:
+  # 生产环境 OpenAI 配置
+  - model_name: gpt-4-production
+    litellm_params:
+      model: openai/gpt-4
+      api_key: ${OPENAI_API_KEY}  # 使用环境变量，不要硬编码
+      api_base: https://api.openai.com/v1
+
+  # 生产环境 Anthropic 配置
+  - model_name: claude-opus-production
+    litellm_params:
+      model: anthropic/claude-opus-4-5
+      api_key: ${ANTHROPIC_API_KEY}  # 使用环境变量
+      api_base: https://api.anthropic.com
+
+  # 生产环境 Gemini 配置
+  - model_name: gemini-pro-production
+    litellm_params:
+      model: gemini/gemini-pro
+      api_key: ${GEMINI_API_KEY}  # 使用环境变量
+      api_base: https://generativelanguage.googleapis.com
+
+# 生产环境服务器配置
+server:
+  bind: "0.0.0.0:8080"  # 监听所有接口
+  timeout: 60  # 生产环境更长的超时时间
+
+# 生产环境日志配置
+logging:
+  level: "info"  # 生产环境使用 info 级别
+  format: "json"  # JSON 格式便于日志聚合
+
+# 部署建议：
+# 1. 设置环境变量：export OPENAI_API_KEY="your-key-here"
+# 2. 使用 systemd 或 Docker 管理进程
+# 3. 配置反向代理（nginx/caddy）处理 SSL
+# 4. 设置监控和告警
+# 5. 定期更新 API 密钥
